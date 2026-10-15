@@ -1,7 +1,7 @@
 // Vercel serverless function: /api/generate
-// The API key lives in the ANTHROPIC_API_KEY environment variable (never in browser code).
+// The API key lives in the GEMINI_API_KEY environment variable (never in browser code).
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
+const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 // One core task: quadratic equations. Three differentiated system prompts.
 const LEVEL_PROMPTS = {
@@ -38,30 +38,32 @@ const FEEDBACK_STYLE = {
   3: "Be rigorous. Discuss the modelling choices, verify the answer against the context (e.g. domain restrictions), and mention an alternative method if useful."
 };
 
-async function askClaude(system, user, maxTokens = 600) {
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+async function askAI(system, user, maxTokens = 2048) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+  const r = await fetch(url, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01"
+      "x-goog-api-key": process.env.GEMINI_API_KEY
     },
     body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: user }]
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: { maxOutputTokens: maxTokens }
     })
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data?.error?.message || "AI request failed");
-  return data.content.map((b) => b.text || "").join("").trim();
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const text = parts.map((p) => p.text || "").join("").trim();
+  if (!text) throw new Error("Empty AI response, please try again");
+  return text;
 }
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
-  if (!process.env.ANTHROPIC_API_KEY)
-    return res.status(500).json({ error: "Server is missing ANTHROPIC_API_KEY" });
+  if (!process.env.GEMINI_API_KEY)
+    return res.status(500).json({ error: "Server is missing GEMINI_API_KEY" });
 
   try {
     const { action, level, problem, answer, attempt } = req.body || {};
@@ -69,24 +71,22 @@ module.exports = async function handler(req, res) {
     let text;
 
     if (action === "problem") {
-      text = await askClaude(
+      text = await askAI(
         LEVEL_PROMPTS[lvl],
         "Generate a new problem now. Make it different from typical textbook examples. Use plain text maths (x^2 for powers), no markdown headings."
       );
     } else if (action === "hint") {
       if (!problem) return res.status(400).json({ error: "No problem provided" });
-      text = await askClaude(
+      text = await askAI(
         `You are a maths tutor. ${HINT_STYLE[lvl]}`,
-        `Problem:\n${problem}\n\nLearner's current attempt (may be empty):\n${attempt || "(none yet)"}\n\nGive one hint.`,
-        300
+        `Problem:\n${problem}\n\nLearner's current attempt (may be empty):\n${attempt || "(none yet)"}\n\nGive one hint.`
       );
     } else if (action === "check") {
       if (!problem || !answer) return res.status(400).json({ error: "Missing problem or answer" });
-      text = await askClaude(
+      text = await askAI(
         `You are a maths tutor checking a learner's work. First solve the problem yourself carefully and verify by substitution. ${FEEDBACK_STYLE[lvl]}
 Begin your reply with exactly one word: CORRECT or INCORRECT, then a colon, then your feedback. Use plain text maths.`,
-        `Problem:\n${problem}\n\nLearner's answer:\n${answer}`,
-        800
+        `Problem:\n${problem}\n\nLearner's answer:\n${answer}`
       );
     } else {
       return res.status(400).json({ error: "Unknown action" });
