@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Math Differentiator – Quadratic Equations</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f7fb; --card: #ffffff; --ink: #1b2233; --muted: #64708a;
+    --brand: #3b5bdb; --brand-soft: #e7ecff; --ok: #2b8a3e; --bad: #c92a2a;
+    --l1: #2f9e44; --l2: #3b5bdb; --l3: #d9480f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--ink); line-height: 1.5; }
+  header { background: #0f1424; color: #fff; padding: 24px 16px; }
+  header .wrap, main { max-width: 760px; margin: 0 auto; }
+  header h1 { margin: 0 0 4px; font-size: 1.5rem; }
+  header p { margin: 0; color: #aab3cc; font-size: .95rem; }
+  main { padding: 16px; }
+  .card { background: var(--card); border-radius: 12px; padding: 18px;
+          box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 16px; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tab { flex: 1 1 140px; border: 2px solid transparent; background: var(--brand-soft);
+         padding: 12px; border-radius: 10px; cursor: pointer; font-weight: 600;
+         font-size: .95rem; text-align: left; color: var(--ink); }
+  .tab small { display: block; font-weight: 400; color: var(--muted); }
+  .tab.active { border-color: var(--brand); background: #fff; }
+  .tab[data-level="1"].active { border-color: var(--l1); }
+  .tab[data-level="3"].active { border-color: var(--l3); }
+  button.primary { background: var(--brand); color: #fff; border: 0; padding: 12px 18px;
+                   border-radius: 8px; font-size: 1rem; cursor: pointer; }
+  button.secondary { background: var(--brand-soft); color: var(--brand); border: 0;
+                     padding: 10px 14px; border-radius: 8px; font-size: .95rem; cursor: pointer; }
+  button:disabled { opacity: .55; cursor: wait; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .problem { font-size: 1.1rem; }
+  .rich p { margin: .5em 0; }
+  .rich h1, .rich h2, .rich h3, .rich h4 { font-size: 1.05rem; margin: .9em 0 .3em; }
+  .rich ul, .rich ol { margin: .4em 0; padding-left: 1.4em; }
+  .rich hr { border: 0; border-top: 1px solid #d5dbea; margin: .8em 0; }
+  .rich > :first-child { margin-top: 0; }
+  .rich > :last-child { margin-bottom: 0; }
+  .rich .katex-display { margin: .6em 0; overflow-x: auto; overflow-y: hidden; }
+  .mathblock { display: block; margin: .5em 0; padding-left: .8em; overflow-x: auto;
+               font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif; font-size: 1.08em; }
+  .mathinline { font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif; }
+  .boxed { border: 1px solid #5b6477; border-radius: 4px; padding: 0 .35em; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff;
+           font-size: .8rem; font-weight: 600; margin-bottom: 8px; }
+  input[type=text] { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid #cfd6e6;
+                     border-radius: 8px; margin-top: 8px; }
+  .feedback { margin-top: 12px; padding: 12px; border-radius: 8px; background: #f1f3f9; }
+  .feedback.ok { background: #ebfbee; border-left: 4px solid var(--ok); }
+  .feedback.bad { background: #fff5f5; border-left: 4px solid var(--bad); }
+  .hint { background: #fff9db; border-left: 4px solid #f59f00; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .hidden { display: none; }
+  .err { color: var(--bad); }
+  footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>AI Math Differentiator</h1>
+    <p>Quadratic equations, adapted by AI to your level</p>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <strong>1. Choose your level</strong>
+    <div class="tabs" role="tablist" style="margin-top:10px">
+      <button class="tab active" data-level="1" role="tab">Level 1: Foundation<small>Guided steps &amp; direct hints</small></button>
+      <button class="tab" data-level="2" role="tab">Level 2: Standard<small>Grade-level problem</small></button>
+      <button class="tab" data-level="3" role="tab">Level 3: Advanced<small>Real-world, multi-step</small></button>
+    </div>
+    <div class="actions">
+      <button id="genBtn" class="primary">Generate problem</button>
+    </div>
+  </section>
+
+  <section id="problemCard" class="card hidden">
+    <span id="badge" class="badge"></span>
+    <div id="problem" class="problem rich"></div>
+
+    <div class="actions">
+      <button id="hintBtn" class="secondary">💡 Give me a hint</button>
+    </div>
+    <div id="hint" class="feedback hint rich hidden"></div>
+
+    <hr style="border:0;border-top:1px solid #e3e7f1;margin:18px 0">
+    <label for="answer"><strong>2. Your answer / working</strong></label>
+    <input id="answer" type="text" placeholder="e.g. x = 2 and x = 3">
+    <div class="actions">
+      <button id="checkBtn" class="primary">Check my answer</button>
+    </div>
+    <div id="feedback" class="feedback rich hidden"></div>
+  </section>
+
+  <p id="error" class="err"></p>
+  <p class="muted">Problems and feedback are generated by AI. Always double-check the maths.</p>
+</main>
+
+<footer>Course: Educational Technology &amp; AI · Topic 8: AI for Differentiated Learning · v2</footer>
+
+<script>
+  const LEVELS = {
+    1: { name: "Level 1: Foundation", color: "var(--l1)" },
+    2: { name: "Level 2: Standard",   color: "var(--l2)" },
+    3: { name: "Level 3: Advanced",   color: "var(--l3)" }
+  };
+  let level = 1;
+  let currentProblem = "";
+
+  const $ = (id) => document.getElementById(id);
+
+  document.querySelectorAll(".tab").forEach((t) =>
+    t.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+      t.classList.add("active");
+      level = Number(t.dataset.level);
+    })
+  );
+
+  async function callAI(action, extra = {}) {
+    $("error").textContent = "";
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, level, problem: currentProblem, ...extra })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    return data.text;
+  }
+
+  // --- Render AI text: Markdown + LaTeX math (\( \), \[ \], $ $, $$ $$) ---
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function renderRich(text) {
+    const math = [];
+    const stash = (displayMode) => (_, m) => {
+      math.push({ m, displayMode });
+      return "@@M" + (math.length - 1) + "@@";
+    };
+    let t = String(text)
+      .replace(/\\\[([\s\S]+?)\\\]/g, stash(true))
+      .replace(/\$\$([\s\S]+?)\$\$/g, stash(true))
+      .replace(/\\\(([\s\S]+?)\\\)/g, stash(false))
+      .replace(/\$(?!\s)([^$\n]+?)(?<!\s)\$/g, stash(false));
+    const html = marked.parse(escapeHtml(t), { breaks: true });
+    return html.replace(/@@M(\d+)@@/g, (_, i) =>
+      katex.renderToString(math[Number(i)].m.trim(), {
+        displayMode: math[Number(i)].displayMode,
+        throwOnError: false
+      })
+    );
+  }
+
+  // --- Dependency-free fallback: LaTeX -> readable Unicode text + light Markdown ---
+  const TEX_SYM = {
+    times: "×", cdot: "·", div: "÷", pm: "±", mp: "∓", leq: "≤", le: "≤", geq: "≥", ge: "≥",
+    neq: "≠", ne: "≠", approx: "≈", Rightarrow: "⇒", Longrightarrow: "⟹", rightarrow: "→",
+    to: "→", Leftrightarrow: "⇔", infty: "∞", pi: "π", alpha: "α", beta: "β", Delta: "Δ",
+    theta: "θ", lambda: "λ", ldots: "…", dots: "…", cdots: "⋯", quad: " ",
+    qquad: "  ", left: "", right: "", displaystyle: "", textstyle: "", limits: "",
+    "in": "∈", cup: "∪", cap: "∩"
+  };
+  const TEX_PUNCT = { ",": " ", ";": " ", ":": " ", "!": "", " ": " ", "{": "{", "}": "}",
+                      "%": "%", "$": "$", "&": "&", "_": "_", "#": "#" };
+  const SUP = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶",
+                "7": "⁷", "8": "⁸", "9": "⁹", "+": "⁺", "-": "⁻", "n": "ⁿ" };
+  const SUB = { "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆",
+                "7": "₇", "8": "₈", "9": "₉" };
+
+  function texGroup(s, i) { // s[i] === "{" -> [content, indexAfterClosingBrace]
+    let d = 0;
+    for (let j = i; j < s.length; j++) {
+      if (s[j] === "{") d++;
+      else if (s[j] === "}" && --d === 0) return [s.slice(i + 1, j), j + 1];
+    }
+    return [s.slice(i + 1), s.length];
+  }
+
+  function texToText(src) {
+    function conv(s) {
+      let out = "";
+      let i = 0;
+      const arg = () => {
+        while (s[i] === " ") i++;
+        if (s[i] === "{") { const g = texGroup(s, i); i = g[1]; return conv(g[0]); }
+        if (s[i] === "\\") {
+          const mm = /^\\([a-zA-Z]+|.)/.exec(s.slice(i));
+          i += mm[0].length;
+          return conv(mm[0]);
+        }
+        return i < s.length ? s[i++] : "";
+      };
+      const wrap = (x) => (/^[\w.π]+$/.test(x) ? x : "(" + x + ")");
+      while (i < s.length) {
+        const c = s[i];
+        if (c === "\\") {
+          const mm = /^\\([a-zA-Z]+|.)/.exec(s.slice(i));
+          const cmd = mm[1];
+          i += mm[0].length;
+          if (cmd === "dfrac" || cmd === "frac" || cmd === "tfrac") {
+            const a = arg(); const b = arg();
+            out += wrap(a) + "/" + wrap(b);
+          } else if (cmd === "sqrt") {
+            if (s[i] === "[") { const e = s.indexOf("]", i); if (e > 0) i = e + 1; }
+            out += "√" + wrap(arg());
+          } else if (cmd === "boxed") {
+            out += '<span class="boxed">' + arg() + "</span>";
+          } else if (["text", "mathrm", "mathbf", "textbf", "operatorname", "mbox"].includes(cmd)) {
+            out += arg();
+          } else if (cmd === "begin" || cmd === "end") {
+            arg();
+          } else if (cmd === "\\") {
+            out += "<br>";
+            if (s[i] === "[") { const e = s.indexOf("]", i); if (e > 0 && e - i < 9) i = e + 1; }
+          } else if (Object.prototype.hasOwnProperty.call(TEX_SYM, cmd)) {
+            out += TEX_SYM[cmd];
+          } else if (Object.prototype.hasOwnProperty.call(TEX_PUNCT, cmd)) {
+            out += TEX_PUNCT[cmd];
+          } else {
+            out += cmd;
+          }
+        } else if (c === "^" || c === "_") {
+          i++;
+          const a = arg();
+          const map = c === "^" ? SUP : SUB;
+          out += a && [...a].every((ch) => map[ch])
+            ? [...a].map((ch) => map[ch]).join("")
+            : c + (a.length > 1 ? "(" + a + ")" : a);
+        } else if (c === "{") {
+          const g = texGroup(s, i); i = g[1]; out += conv(g[0]);
+        } else if (c === "}" || c === "~") {
+          i++;
+          if (c === "~") out += " ";
+        } else {
+          out += c; i++;
+        }
+      }
+      return out;
+    }
+    return conv(src.replace(/\n/g, " ").replace(/&amp;/g, " ").trim());
+  }
+
+  function simpleRender(text) {
+    const math = [];
+    const keep = (cls) => (_, m) => {
+      math.push('<span class="' + cls + '">' + texToText(m) + "</span>");
+      return "@@M" + (math.length - 1) + "@@";
+    };
+    const s = escapeHtml(String(text))
+      .replace(/\\\[([\s\S]+?)\\\]/g, keep("mathblock"))
+      .replace(/\$\$([\s\S]+?)\$\$/g, keep("mathblock"))
+      .replace(/\\\(([\s\S]+?)\\\)/g, keep("mathinline"))
+      .replace(/\$(?!\s)([^$\n]+?)(?<!\s)\$/g, keep("mathinline"));
+    const inline = (x) => x.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+                           .replace(/`([^`]+)`/g, "<code>$1</code>");
+    let html = "", list = false, para = [];
+    const flush = () => { if (para.length) { html += "<p>" + para.join("<br>") + "</p>"; para = []; } };
+    const endList = () => { if (list) { html += "</ul>"; list = false; } };
+    for (const line of s.split("\n")) {
+      let m;
+      if (!line.trim()) { flush(); endList(); }
+      else if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { flush(); endList(); html += "<hr>"; }
+      else if ((m = /^\s*#{1,6}\s+(.*)$/.exec(line))) { flush(); endList(); html += "<h4>" + inline(m[1]) + "</h4>"; }
+      else if ((m = /^\s*[-*•]\s+(.*)$/.exec(line))) {
+        flush();
+        if (!list) { html += "<ul>"; list = true; }
+        html += "<li>" + inline(m[1]) + "</li>";
+      }
+      else { endList(); para.push(inline(line)); }
+    }
+    flush(); endList();
+    return html.replace(/@@M(\d+)@@/g, (_, i) => math[Number(i)]);
+  }
+
+  function setRich(el, text) {
+    try {
+      if (window.marked && window.katex) { el.innerHTML = renderRich(text); return; }
+    } catch (e) { /* use the fallback renderer below */ }
+    try {
+      el.innerHTML = simpleRender(text);
+    } catch (e) {
+      el.style.whiteSpace = "pre-wrap";
+      el.textContent = text;
+    }
+  }
+
+  function setBusy(btn, busy, label) {
+    btn.disabled = busy;
+    if (label) btn.textContent = busy ? "Thinking…" : label;
+  }
+
+  $("genBtn").addEventListener("click", async () => {
+    const btn = $("genBtn");
+    setBusy(btn, true, "Generate problem");
+    try {
+      currentProblem = await callAI("problem");
+      const b = $("badge");
+      b.textContent = LEVELS[level].name;
+      b.style.background = LEVELS[level].color;
+      setRich($("problem"), currentProblem);
+      $("hint").classList.add("hidden");
+      $("feedback").classList.add("hidden");
+      $("answer").value = "";
+      $("problemCard").classList.remove("hidden");
+    } catch (e) {
+      $("error").textContent = "Error: " + e.message;
+    } finally {
+      setBusy(btn, false, "Generate problem");
+    }
+  });
+
+  $("hintBtn").addEventListener("click", async () => {
+    const btn = $("hintBtn");
+    setBusy(btn, true, "💡 Give me a hint");
+    try {
+      const text = await callAI("hint", { attempt: $("answer").value });
+      const h = $("hint");
+      setRich(h, text);
+      h.classList.remove("hidden");
+    } catch (e) {
+      $("error").textContent = "Error: " + e.message;
+    } finally {
+      setBusy(btn, false, "💡 Give me a hint");
+    }
+  });
+
+  $("checkBtn").addEventListener("click", async () => {
+    const answer = $("answer").value.trim();
+    if (!answer) { $("error").textContent = "Please type an answer first."; return; }
+    const btn = $("checkBtn");
+    setBusy(btn, true, "Check my answer");
+    try {
+      const text = await callAI("check", { answer });
+      const f = $("feedback");
+      setRich(f, text.replace(/^\s*(CORRECT|INCORRECT)\s*[:\-]?\s*/i, ""));
+      f.className = "feedback rich " + (/^\s*CORRECT/i.test(text) ? "ok" : "bad");
+    } catch (e) {
+      $("error").textContent = "Error: " + e.message;
+    } finally {
+      setBusy(btn, false, "Check my answer");
+    }
+  });
+</script>
+</body>
+</html>
