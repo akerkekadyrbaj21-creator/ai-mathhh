@@ -1,7 +1,7 @@
 // Vercel serverless function: /api/generate
-// The API key lives in the GEMINI_API_KEY environment variable (never in browser code).
+// The API key lives in the GROQ_API_KEY environment variable (never in browser code).
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
 // One core task: quadratic equations. Three differentiated system prompts.
 const LEVEL_PROMPTS = {
@@ -38,32 +38,34 @@ const FEEDBACK_STYLE = {
   3: "Be rigorous. Discuss the modelling choices, verify the answer against the context (e.g. domain restrictions), and mention an alternative method if useful."
 };
 
-async function askAI(system, user, maxTokens = 2048) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
-  const r = await fetch(url, {
+async function askAI(system, user, maxTokens = 1024) {
+  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-goog-api-key": process.env.GEMINI_API_KEY
+      authorization: `Bearer ${process.env.GROQ_API_KEY}`
     },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: user }] }],
-      generationConfig: { maxOutputTokens: maxTokens }
+      model: MODEL,
+      max_tokens: maxTokens,
+      temperature: 0.7,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user }
+      ]
     })
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data?.error?.message || "AI request failed");
-  const parts = data?.candidates?.[0]?.content?.parts || [];
-  const text = parts.map((p) => p.text || "").join("").trim();
+  const text = (data?.choices?.[0]?.message?.content || "").trim();
   if (!text) throw new Error("Empty AI response, please try again");
   return text;
 }
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
-  if (!process.env.GEMINI_API_KEY)
-    return res.status(500).json({ error: "Server is missing GEMINI_API_KEY" });
+  if (!process.env.GROQ_API_KEY)
+    return res.status(500).json({ error: "Server is missing GROQ_API_KEY" });
 
   try {
     const { action, level, problem, answer, attempt } = req.body || {};
